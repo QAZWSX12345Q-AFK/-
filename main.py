@@ -32,13 +32,12 @@ def save_state(state):
         json.dump(state, f, indent=2, ensure_ascii=False)
 
 def get_fund_nav(fund_code):
-    # 改用天天基金 PC 端接口
+    # 使用天天基金 PC 端接口（更稳定）
     url = f"http://fund.eastmoney.com/pingzhongdata/{fund_code}.js"
     headers = {"User-Agent": "Mozilla/5.0"}
     try:
         resp = requests.get(url, headers=headers, timeout=10)
         resp.encoding = 'utf-8'
-        # 提取数据
         nav_match = re.search(r'var dwjz\s*=\s*"([\d.]+)"', resp.text)
         name_match = re.search(r'var fName\s*=\s*"([^"]+)"', resp.text)
         date_match = re.search(r'var jzrq\s*=\s*"([^"]+)"', resp.text)
@@ -47,7 +46,7 @@ def get_fund_nav(fund_code):
                 "dwjz": nav_match.group(1),
                 "name": name_match.group(1),
                 "jzrq": date_match.group(1),
-                "gszzl": "0.00"  # 无实时涨跌幅，可忽略
+                "gszzl": "0.00"
             }
         else:
             print(f"解析失败，代码 {fund_code}，响应长度 {len(resp.text)}")
