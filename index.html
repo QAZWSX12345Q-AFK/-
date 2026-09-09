@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>定投收益看板</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, 'Helvetica Neue', sans-serif;
+            background: #f4f6f9;
+            padding: 16px;
+            color: #333;
+        }
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .sub {
+            color: #888;
+            font-size: 14px;
+        }
+        .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .row:last-child {
+            border-bottom: none;
+        }
+        .label {
+            color: #777;
+        }
+        .value {
+            font-weight: 500;
+        }
+        .big-number {
+            font-size: 26px;
+            font-weight: 700;
+        }
+        .profit-positive {
+            color: #e74c3c;
+        }
+        .profit-negative {
+            color: #2ecc71;
+        }
+        .fund-item {
+            margin-bottom: 20px;
+        }
+        .fund-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1a1a2e;
+        }
+        hr {
+            border: none;
+            border-top: 1px dashed #ddd;
+            margin: 12px 0;
+        }
+        .summary {
+            background: #eef2f7;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 4px;
+        }
+        .update-time {
+            text-align: center;
+            color: #aaa;
+            font-size: 12px;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="title">📊 我的定投组合</div>
+        <div class="sub">数据更新于 2026-09-09</div>
+    </div>
+
+    <!-- 各基金明细 -->
+    <div class="card">
+        
+    </div>
+
+    <!-- 汇总 -->
+    <div class="card">
+        <div class="summary">
+            <div class="row"><span class="label">总投入成本</span><span class="value">¥0.00</span></div>
+            <div class="row"><span class="label">当前总市值</span><span class="value">¥0.00</span></div>
+            <div class="row" style="border-bottom:2px solid #ccc;padding-bottom:10px;">
+                <span class="label"><strong>💰 总收益</strong></span>
+                <span class="big-number ${total_profit >= 0 ? 'profit-positive' : 'profit-negative'}">+0.00</span>
+            </div>
+            <div class="row">
+                <span class="label"><strong>📈 累计收益率</strong></span>
+                <span class="big-number ${total_rate >= 0 ? 'profit-positive' : 'profit-negative'}">+0.00%</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="update-time">💡 每日定投自动滚存 · 打开即看</div>
+</body>
+</html>
