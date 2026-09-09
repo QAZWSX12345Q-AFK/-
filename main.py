@@ -32,17 +32,29 @@ def save_state(state):
         json.dump(state, f, indent=2, ensure_ascii=False)
 
 def get_fund_nav(fund_code):
-    url = f"https://fundgz.1234567.com.cn/js/{fund_code}.js"
-    headers = {"Referer": "https://fund.eastmoney.com", "User-Agent": "Mozilla/5.0"}
+    # 改用天天基金 PC 端接口
+    url = f"http://fund.eastmoney.com/pingzhongdata/{fund_code}.js"
+    headers = {"User-Agent": "Mozilla/5.0"}
     try:
         resp = requests.get(url, headers=headers, timeout=10)
         resp.encoding = 'utf-8'
-        data = re.search(r'jsonpgz\((.*)\)', resp.text)
-        if data:
-            return json.loads(data.group(1))
+        # 提取数据
+        nav_match = re.search(r'var dwjz\s*=\s*"([\d.]+)"', resp.text)
+        name_match = re.search(r'var fName\s*=\s*"([^"]+)"', resp.text)
+        date_match = re.search(r'var jzrq\s*=\s*"([^"]+)"', resp.text)
+        if nav_match and name_match and date_match:
+            return {
+                "dwjz": nav_match.group(1),
+                "name": name_match.group(1),
+                "jzrq": date_match.group(1),
+                "gszzl": "0.00"  # 无实时涨跌幅，可忽略
+            }
+        else:
+            print(f"解析失败，代码 {fund_code}，响应长度 {len(resp.text)}")
+            return None
     except Exception as e:
-        print(f"获取基金 {fund_code} 失败: {e}")
-    return None
+        print(f"请求异常: {e}")
+        return None
 
 def main():
     cfg = load_config()
@@ -66,7 +78,6 @@ def main():
 
         st = state.get(code, {"shares": 0.0, "total_cost": 0.0, "last_update": None})
 
-        # 今日定投（仅当 daily>0 且今天尚未执行）
         if daily > 0 and st.get("last_update") != today:
             new_shares = daily / nav
             st["shares"] += new_shares
@@ -101,7 +112,6 @@ def main():
 
     save_state(state)
 
-    # 读取模板并填充
     with open("index_template.html", "r", encoding="utf-8") as f:
         template = Template(f.read())
 
