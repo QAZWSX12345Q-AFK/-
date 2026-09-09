@@ -1,6 +1,5 @@
 import json
 import requests
-import re
 import os
 from datetime import date
 from string import Template
@@ -32,37 +31,61 @@ def save_state(state):
         json.dump(state, f, indent=2, ensure_ascii=False)
 
 def get_fund_nav(fund_code):
-    """从天天基金详情页解析净值"""
-    url = f"http://fund.eastmoney.com/fund.html?fundcode={fund_code}"
+    """
+    使用天天基金官方净值API
+    """
+    url = f"http://fund.eastmoney.com/f10/F10DataApi.aspx?type=lsjz&code={fund_code}&page=1&per=1"
     headers = {"User-Agent": "Mozilla/5.0"}
     try:
         resp = requests.get(url, headers=headers, timeout=10)
         resp.encoding = 'utf-8'
-        html = resp.text
-
-        # 提取基金名称（从title）
-        name_match = re.search(r'<title>(.*?)基金</title>', html)
-        fund_name = name_match.group(1).strip() if name_match else fund_code
-
-        # 提取单位净值（多种正则模式）
-        nav_match = re.search(r'单位净值</td>\s*<td[^>]*>([\d.]+)</td>', html, re.S)
-        if not nav_match:
-            nav_match = re.search(r'<span class="ui_num">([\d.]+)</span>', html)
-        if not nav_match:
-            nav_match = re.search(r'净值[^0-9]*([\d.]+)', html)
-        if not nav_match:
-            print(f"未找到净值，代码 {fund_code}")
+        data = resp.text
+        # 返回格式：var apidata = { ... };
+        # 提取JSON部分
+        import re
+        json_match = re.search(r'var apidata\s*=\s*({.*?});', data, re.S)
+        if not json_match:
+            print(f"未找到API数据，代码 {fund_code}")
             return None
-
-        nav = nav_match.group(1)
-
-        # 提取净值日期
-        date_match = re.search(r'净值日期</td>\s*<td[^>]*>([\d-]+)</td>', html, re.S)
-        if not date_match:
-            date_match = re.search(r'净值日期[^0-9]*([\d-]+)', html)
-        nav_date = date_match.group(1) if date_match else date.today().strftime("%Y-%m-%d")
-
-        return {"dwjz": nav, "name": fund_name, "jzrq": nav_date, "gszzl": "0.00"}
+        json_str = json_match.group(1)
+        # 修复可能的JSON格式问题（例如日期字段带引号）
+        json_str = json_str.replace('"', '"')  # 确保引号正确
+        # 手动解析，因为可能包含中文
+        try:
+            api_data = json.loads(json_str)
+        except:
+            # 如果解析失败，尝试使用eval（不推荐但可行）
+            # 更安全的方式是直接正则提取
+            # 我们直接用正则提取净值
+            nav_match = re.search(r'"dwjz":"([\d.]+)"', data)
+            name_match = re.search(r'"FCODE":"([^"]+)"', data)  # 名称在另一个字段
+            date_match = re.search(r'"FSRQ":"([\d-]+)"', data)
+            if nav_match and date_match:
+                return {
+                    "dwjz": nav_match.group(1),
+                    "name": fund_code,  # 名称从配置取
+                    "jzrq": date_match.group(1),
+                    "gszzl": "0.00"
+                }
+            else:
+                print(f"正则提取失败，代码 {fund_code}")
+                return None
+        # 如果json解析成功，则从api_data中提取
+        # api_data结构: {"Data": [{"DWJZ": "1.2345", "FSRQ": "2026-09-09"}]}
+        records = api_data.get("Data", [])
+        if records and len(records) > 0:
+            latest = records[0]
+            nav = latest.get("DWJZ")
+            nav_date = latest.get("FSRQ")
+            if nav and nav_date:
+                return {
+                    "dwjz": nav,
+                    "name": fund_code,
+                    "jzrq": nav_date,
+                    "gszzl": "0.00"
+                }
+        print(f"无记录，代码 {fund_code}")
+        return None
     except Exception as e:
         print(f"请求异常: {e}")
         return None
@@ -85,7 +108,7 @@ def main():
 
         nav = float(nav_data["dwjz"])
         nav_date = nav_data["jzrq"]
-        fund_name = nav_data.get("name", fund["name"])
+        fund_name = fund.get("name", code)
 
         st = state.get(code, {"shares": 0.0, "total_cost": 0.0, "last_update": None})
 
