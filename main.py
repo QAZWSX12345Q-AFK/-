@@ -32,25 +32,48 @@ def save_state(state):
         json.dump(state, f, indent=2, ensure_ascii=False)
 
 def get_fund_nav(fund_code):
-    # 使用天天基金 PC 端接口（更稳定）
     url = f"http://fund.eastmoney.com/pingzhongdata/{fund_code}.js"
     headers = {"User-Agent": "Mozilla/5.0"}
     try:
         resp = requests.get(url, headers=headers, timeout=10)
         resp.encoding = 'utf-8'
-        nav_match = re.search(r'var dwjz\s*=\s*"([\d.]+)"', resp.text)
-        name_match = re.search(r'var fName\s*=\s*"([^"]+)"', resp.text)
-        date_match = re.search(r'var jzrq\s*=\s*"([^"]+)"', resp.text)
-        if nav_match and name_match and date_match:
-            return {
-                "dwjz": nav_match.group(1),
-                "name": name_match.group(1),
-                "jzrq": date_match.group(1),
-                "gszzl": "0.00"
-            }
-        else:
-            print(f"解析失败，代码 {fund_code}，响应长度 {len(resp.text)}")
+        text = resp.text
+
+        # 调试：打印前300字符
+        print(f"响应前300字符: {text[:300]}")
+
+        # 多种方式尝试提取净值
+        nav_match = re.search(r'dwjz\s*=\s*"([\d.]+)"', text)
+        if not nav_match:
+            # 尝试不带引号的情况
+            nav_match = re.search(r'dwjz\s*=\s*([\d.]+)', text)
+        if not nav_match:
+            # 尝试从 fundnav 或其他字段提取
+            nav_match = re.search(r'"dwjz":"([\d.]+)"', text)
+        if not nav_match:
+            print(f"未找到净值字段，代码 {fund_code}")
             return None
+
+        nav = nav_match.group(1)
+
+        # 提取基金名称
+        name_match = re.search(r'fName\s*=\s*"([^"]+)"', text)
+        if not name_match:
+            name_match = re.search(r'"fName":"([^"]+)"', text)
+        fund_name = name_match.group(1) if name_match else fund_code
+
+        # 提取净值日期
+        date_match = re.search(r'jzrq\s*=\s*"([^"]+)"', text)
+        if not date_match:
+            date_match = re.search(r'"jzrq":"([^"]+)"', text)
+        nav_date = date_match.group(1) if date_match else date.today().strftime("%Y-%m-%d")
+
+        return {
+            "dwjz": nav,
+            "name": fund_name,
+            "jzrq": nav_date,
+            "gszzl": "0.00"
+        }
     except Exception as e:
         print(f"请求异常: {e}")
         return None
