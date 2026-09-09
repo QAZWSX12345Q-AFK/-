@@ -32,40 +32,46 @@ def save_state(state):
         json.dump(state, f, indent=2, ensure_ascii=False)
 
 def get_fund_nav(fund_code):
-    url = f"http://fund.eastmoney.com/pingzhongdata/{fund_code}.js"
-    headers = {"User-Agent": "Mozilla/5.0"}
+    """
+    从天天基金详情页解析最新净值和日期
+    """
+    url = f"http://fund.eastmoney.com/fund.html?fundcode={fund_code}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     try:
         resp = requests.get(url, headers=headers, timeout=10)
         resp.encoding = 'utf-8'
-        text = resp.text
+        html = resp.text
 
-        # 调试：打印前300字符
-        print(f"响应前300字符: {text[:300]}")
+        # 打印部分内容用于调试（可删除）
+        # print(html[:500])
 
-        # 多种方式尝试提取净值
-        nav_match = re.search(r'dwjz\s*=\s*"([\d.]+)"', text)
+        # 提取基金名称（从 <title> 或 h1）
+        name_match = re.search(r'<title>(.*?)基金</title>', html)
+        fund_name = name_match.group(1).strip() if name_match else fund_code
+
+        # 提取单位净值 - 常见格式：<td class="tor bold" style="color:#f00;">1.2345</td>
+        # 或 <span class="ui_num">1.2345</span>
+        nav_match = re.search(r'单位净值</td>\s*<td[^>]*>([\d.]+)</td>', html, re.S)
         if not nav_match:
-            # 尝试不带引号的情况
-            nav_match = re.search(r'dwjz\s*=\s*([\d.]+)', text)
+            nav_match = re.search(r'单位净值.*?<span[^>]*>([\d.]+)</span>', html, re.S)
         if not nav_match:
-            # 尝试从 fundnav 或其他字段提取
-            nav_match = re.search(r'"dwjz":"([\d.]+)"', text)
+            nav_match = re.search(r'<span class="ui_num">([\d.]+)</span>', html)
         if not nav_match:
-            print(f"未找到净值字段，代码 {fund_code}")
+            # 尝试搜索 "净值" 后的数字
+            nav_match = re.search(r'净值.*?(\d+\.\d+)', html)
+
+        if not nav_match:
+            print(f"未找到净值，代码 {fund_code}")
             return None
 
         nav = nav_match.group(1)
 
-        # 提取基金名称
-        name_match = re.search(r'fName\s*=\s*"([^"]+)"', text)
-        if not name_match:
-            name_match = re.search(r'"fName":"([^"]+)"', text)
-        fund_name = name_match.group(1) if name_match else fund_code
-
-        # 提取净值日期
-        date_match = re.search(r'jzrq\s*=\s*"([^"]+)"', text)
+        # 提取净值日期 - 常见：净值日期</td><td>2026-09-09</td>
+        date_match = re.search(r'净值日期</td>\s*<td[^>]*>([\d-]+)</td>', html, re.S)
         if not date_match:
-            date_match = re.search(r'"jzrq":"([^"]+)"', text)
+            date_match = re.search(r'净值日期.*?(\d{4}-\d{2}-\d{2})', html, re.S)
         nav_date = date_match.group(1) if date_match else date.today().strftime("%Y-%m-%d")
 
         return {
